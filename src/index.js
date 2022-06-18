@@ -21,7 +21,8 @@ const VirtualList = Vue.component('virtual-list', {
 
   data () {
     return {
-      range: null
+      range: null,
+      toBottomTime: null
     }
   },
 
@@ -63,15 +64,15 @@ const VirtualList = Vue.component('virtual-list', {
   activated () {
     // set back offset when awake from keep-alive
     this.scrollToOffset(this.virtual.offset)
-    
+
     if (this.pageMode) {
       document.addEventListener('scroll', this.onScroll, {
-        passive: false,
+        passive: false
       })
     }
   },
-  
-  deactivated() {
+
+  deactivated () {
     if (this.pageMode) {
       document.removeEventListener('scroll', this.onScroll)
     }
@@ -159,12 +160,15 @@ const VirtualList = Vue.component('virtual-list', {
     },
 
     // set current scroll position to a expectant index
-    scrollToIndex (index) {
+    scrollToIndex (index, addOffset = 0) {
       // scroll to bottom
       if (index >= this.dataSources.length - 1) {
         this.scrollToBottom()
       } else {
-        const offset = this.virtual.getOffset(index)
+        let offset = this.virtual.getOffset(index)
+        if (addOffset > 0) {
+          offset = Math.max(0, offset + addOffset)
+        }
         this.scrollToOffset(offset)
       }
     },
@@ -179,11 +183,31 @@ const VirtualList = Vue.component('virtual-list', {
         // check if it's really scrolled to the bottom
         // maybe list doesn't render and calculate to last range
         // so we need retry in next event loop until it really at bottom
-        setTimeout(() => {
+        this.toBottomTime = setTimeout(() => {
           if (this.getOffset() + this.getClientSize() < this.getScrollSize()) {
             this.scrollToBottom()
           }
         }, 3)
+      }
+    },
+
+    scrollStop () {
+      const offset = this.getOffset()
+      if (this.toBottomTime) {
+        clearTimeout(this.toBottomTime)
+        this.toBottomTime = null
+      }
+      this.scrollToOffset(offset)
+    },
+
+    scrollInfo () {
+      const clientSize = this.getClientSize()
+      const offset = this.getOffset()
+      const scrollSize = this.getScrollSize()
+      return {
+        offset, // 滚动的距离
+        scale: offset / (scrollSize - clientSize), // 已滚动比例
+        tail: scrollSize - clientSize - offset // 与底部距离
       }
     },
 
@@ -220,6 +244,7 @@ const VirtualList = Vue.component('virtual-list', {
 
       // sync initial range
       this.range = this.virtual.getRange()
+      this.$emit('range', this.range)
     },
 
     getUniqueIdFromDataSources () {
@@ -249,6 +274,7 @@ const VirtualList = Vue.component('virtual-list', {
     // here is the rerendering entry
     onRangeChanged (range) {
       this.range = range
+      this.$emit('range', this.range)
     },
 
     onScroll (evt) {
