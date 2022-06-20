@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.3
+ * vue-virtual-scroll-list v2.3.3-3
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -715,7 +715,8 @@
     props: VirtualProps,
     data: function data() {
       return {
-        range: null
+        range: null,
+        toBottomTime: null
       };
     },
     watch: {
@@ -745,9 +746,20 @@
         this.$on(EVENT_TYPE.SLOT, this.onSlotResized);
       }
     },
-    // set back offset when awake from keep-alive
     activated: function activated() {
+      // set back offset when awake from keep-alive
       this.scrollToOffset(this.virtual.offset);
+
+      if (this.pageMode) {
+        document.addEventListener('scroll', this.onScroll, {
+          passive: false
+        });
+      }
+    },
+    deactivated: function deactivated() {
+      if (this.pageMode) {
+        document.removeEventListener('scroll', this.onScroll);
+      }
     },
     mounted: function mounted() {
       // set position
@@ -827,11 +839,18 @@
       },
       // set current scroll position to a expectant index
       scrollToIndex: function scrollToIndex(index) {
+        var addOffset = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+
         // scroll to bottom
         if (index >= this.dataSources.length - 1) {
           this.scrollToBottom();
         } else {
           var offset = this.virtual.getOffset(index);
+
+          if (addOffset !== 0) {
+            offset = Math.max(0, offset + addOffset);
+          }
+
           this.scrollToOffset(offset);
         }
       },
@@ -847,12 +866,40 @@
           // maybe list doesn't render and calculate to last range
           // so we need retry in next event loop until it really at bottom
 
-          setTimeout(function () {
+          if (this.toBottomTime) {
+            clearTimeout(this.toBottomTime);
+            this.toBottomTime = null;
+          }
+
+          this.toBottomTime = setTimeout(function () {
             if (_this.getOffset() + _this.getClientSize() < _this.getScrollSize()) {
               _this.scrollToBottom();
             }
           }, 3);
         }
+      },
+      stopToBottom: function stopToBottom() {
+        if (this.toBottomTime) {
+          clearTimeout(this.toBottomTime);
+          this.toBottomTime = null;
+        }
+      },
+      scrollStop: function scrollStop() {
+        this.stopToBottom();
+        this.scrollToOffset(this.getOffset());
+      },
+      scrollInfo: function scrollInfo() {
+        var clientSize = this.getClientSize();
+        var offset = this.getOffset();
+        var scrollSize = this.getScrollSize();
+        return {
+          offset: offset,
+          // 滚动的距离
+          scale: offset / (scrollSize - clientSize),
+          // 已滚动比例
+          tail: scrollSize - clientSize - offset // 与底部距离
+
+        };
       },
       // when using page mode we need update slot header size manually
       // taking root offset relative to the browser as slot header size
@@ -885,6 +932,7 @@
         }, this.onRangeChanged); // sync initial range
 
         this.range = this.virtual.getRange();
+        this.$emit('range', this.range);
       },
       getUniqueIdFromDataSources: function getUniqueIdFromDataSources() {
         var dataKey = this.dataKey;
@@ -912,6 +960,7 @@
       // here is the rerendering entry
       onRangeChanged: function onRangeChanged(range) {
         this.range = range;
+        this.$emit('range', this.range);
       },
       onScroll: function onScroll(evt) {
         var offset = this.getOffset();

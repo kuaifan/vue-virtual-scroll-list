@@ -166,7 +166,7 @@ const VirtualList = Vue.component('virtual-list', {
         this.scrollToBottom()
       } else {
         let offset = this.virtual.getOffset(index)
-        if (addOffset > 0) {
+        if (addOffset !== 0) {
           offset = Math.max(0, offset + addOffset)
         }
         this.scrollToOffset(offset)
@@ -183,6 +183,10 @@ const VirtualList = Vue.component('virtual-list', {
         // check if it's really scrolled to the bottom
         // maybe list doesn't render and calculate to last range
         // so we need retry in next event loop until it really at bottom
+        if (this.toBottomTime) {
+          clearTimeout(this.toBottomTime)
+          this.toBottomTime = null
+        }
         this.toBottomTime = setTimeout(() => {
           if (this.getOffset() + this.getClientSize() < this.getScrollSize()) {
             this.scrollToBottom()
@@ -191,13 +195,16 @@ const VirtualList = Vue.component('virtual-list', {
       }
     },
 
-    scrollStop () {
-      const offset = this.getOffset()
+    stopToBottom () {
       if (this.toBottomTime) {
         clearTimeout(this.toBottomTime)
         this.toBottomTime = null
       }
-      this.scrollToOffset(offset)
+    },
+
+    scrollStop () {
+      this.stopToBottom()
+      this.scrollToOffset(this.getOffset())
     },
 
     scrollInfo () {
