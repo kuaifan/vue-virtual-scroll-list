@@ -105,6 +105,10 @@ export const VirtualProps = {
   },
   itemScopedSlots: {
     type: Object
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 }
 

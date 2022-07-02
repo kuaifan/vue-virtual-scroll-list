@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.3-5
+ * vue-virtual-scroll-list v2.3.3-6
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -564,6 +564,10 @@
     },
     itemScopedSlots: {
       type: Object
+    },
+    disabled: {
+      type: Boolean,
+      "default": false
     }
   };
   var ItemProps = {
@@ -716,22 +720,13 @@
     data: function data() {
       return {
         range: null,
-        toBottomTime: null,
-        touchIng: false,
-        touchEvent: false,
-        addIng: false
+        toBottomTime: null
       };
     },
     watch: {
       'dataSources.length': function dataSourcesLength() {
-        var _this = this;
-
-        this.addIng = true;
         this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources());
         this.virtual.handleDataSourcesChange();
-        this.$nextTick(function (_) {
-          _this.addIng = false;
-        });
       },
       keeps: function keeps(newValue) {
         this.virtual.updateParam('keeps', newValue);
@@ -865,7 +860,7 @@
       },
       // set current scroll position to bottom
       scrollToBottom: function scrollToBottom() {
-        var _this2 = this;
+        var _this = this;
 
         var shepherd = this.$refs.shepherd;
 
@@ -881,8 +876,8 @@
           }
 
           this.toBottomTime = setTimeout(function () {
-            if (_this2.getOffset() + _this2.getClientSize() < _this2.getScrollSize()) {
-              _this2.scrollToBottom();
+            if (_this.getOffset() + _this.getClientSize() < _this.getScrollSize()) {
+              _this.scrollToBottom();
             }
           }, 3);
         }
@@ -972,7 +967,7 @@
         this.$emit('range', this.range);
       },
       onScroll: function onScroll(evt) {
-        if (this.addIng) {
+        if (this.disabled) {
           return;
         }
 
@@ -987,35 +982,14 @@
         this.virtual.handleScroll(offset);
         this.emitEvent(offset, clientSize, scrollSize, evt);
       },
-      onTouchstart: function onTouchstart() {
-        this.touchIng = true;
-      },
-      onTouchend: function onTouchend() {
-        this.touchIng = false;
-
-        if (this.touchEvent === 'totop') {
-          this.$emit('totop');
-        } else if (this.touchEvent === 'tobottom') {
-          this.$emit('tobottom');
-        }
-      },
       // emit event in special position
       emitEvent: function emitEvent(offset, clientSize, scrollSize, evt) {
         this.$emit('scroll', evt, this.virtual.getRange());
-        this.touchEvent = null;
 
         if (this.virtual.isFront() && !!this.dataSources.length && offset - this.topThreshold <= 0) {
-          if (this.touchIng) {
-            this.touchEvent = 'totop';
-          } else {
-            this.$emit('totop');
-          }
+          this.$emit('totop');
         } else if (this.virtual.isBehind() && offset + clientSize + this.bottomThreshold >= scrollSize) {
-          if (this.touchIng) {
-            this.touchEvent = 'tobottom';
-          } else {
-            this.$emit('tobottom');
-          }
+          this.$emit('tobottom');
         }
       },
       // get the real render slots based on range data
@@ -1091,17 +1065,19 @@
           headerStyle = this.headerStyle,
           footerTag = this.footerTag,
           footerClass = this.footerClass,
-          footerStyle = this.footerStyle;
+          footerStyle = this.footerStyle,
+          disabled = this.disabled;
       var paddingStyle = {
         padding: isHorizontal ? "0px ".concat(padBehind, "px 0px ").concat(padFront, "px") : "".concat(padFront, "px 0px ").concat(padBehind, "px")
       };
       var wrapperStyle = wrapStyle ? Object.assign({}, wrapStyle, paddingStyle) : paddingStyle;
       return h(rootTag, {
         ref: 'root',
+        style: disabled ? {
+          overflow: 'hidden'
+        } : null,
         on: {
-          '&scroll': !pageMode && this.onScroll,
-          '&touchstart': this.onTouchstart,
-          '&touchend': this.onTouchend
+          '&scroll': !pageMode && this.onScroll
         }
       }, [// header slot
       header ? h(Slot, {

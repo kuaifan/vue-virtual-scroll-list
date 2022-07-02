@@ -22,21 +22,14 @@ const VirtualList = Vue.component('virtual-list', {
   data () {
     return {
       range: null,
-      toBottomTime: null,
-      touchIng: false,
-      touchEvent: false,
-      addIng: false
+      toBottomTime: null
     }
   },
 
   watch: {
     'dataSources.length' () {
-      this.addIng = true
       this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources())
       this.virtual.handleDataSourcesChange()
-      this.$nextTick(_ => {
-        this.addIng = false
-      })
     },
 
     keeps (newValue) {
@@ -292,7 +285,7 @@ const VirtualList = Vue.component('virtual-list', {
     },
 
     onScroll (evt) {
-      if (this.addIng) {
+      if (this.disabled) {
         return
       }
       const offset = this.getOffset()
@@ -308,36 +301,14 @@ const VirtualList = Vue.component('virtual-list', {
       this.emitEvent(offset, clientSize, scrollSize, evt)
     },
 
-    onTouchstart () {
-      this.touchIng = true
-    },
-
-    onTouchend () {
-      this.touchIng = false
-      if (this.touchEvent === 'totop') {
-        this.$emit('totop')
-      } else if (this.touchEvent === 'tobottom') {
-        this.$emit('tobottom')
-      }
-    },
-
     // emit event in special position
     emitEvent (offset, clientSize, scrollSize, evt) {
       this.$emit('scroll', evt, this.virtual.getRange())
 
-      this.touchEvent = null
       if (this.virtual.isFront() && !!this.dataSources.length && (offset - this.topThreshold <= 0)) {
-        if (this.touchIng) {
-          this.touchEvent = 'totop'
-        } else {
-          this.$emit('totop')
-        }
+        this.$emit('totop')
       } else if (this.virtual.isBehind() && (offset + clientSize + this.bottomThreshold >= scrollSize)) {
-        if (this.touchIng) {
-          this.touchEvent = 'tobottom'
-        } else {
-          this.$emit('tobottom')
-        }
+        this.$emit('tobottom')
       }
     },
 
@@ -386,16 +357,17 @@ const VirtualList = Vue.component('virtual-list', {
   render (h) {
     const { header, footer } = this.$slots
     const { padFront, padBehind } = this.range
-    const { isHorizontal, pageMode, rootTag, wrapTag, wrapClass, wrapStyle, headerTag, headerClass, headerStyle, footerTag, footerClass, footerStyle } = this
+    const { isHorizontal, pageMode, rootTag, wrapTag, wrapClass, wrapStyle, headerTag, headerClass, headerStyle, footerTag, footerClass, footerStyle, disabled } = this
     const paddingStyle = { padding: isHorizontal ? `0px ${padBehind}px 0px ${padFront}px` : `${padFront}px 0px ${padBehind}px` }
     const wrapperStyle = wrapStyle ? Object.assign({}, wrapStyle, paddingStyle) : paddingStyle
 
     return h(rootTag, {
       ref: 'root',
+      style: disabled ? {
+        overflow: 'hidden'
+      } : null,
       on: {
-        '&scroll': !pageMode && this.onScroll,
-        '&touchstart': this.onTouchstart,
-        '&touchend': this.onTouchend
+        '&scroll': !pageMode && this.onScroll
       }
     }, [
       // header slot

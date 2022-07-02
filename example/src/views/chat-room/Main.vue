@@ -14,6 +14,7 @@
           :estimate-size="100"
           :item-class="'stream-item'"
           :item-class-add="addItemClass"
+          :disabled="disabled"
           @resized="onItemRendered"
           @totop="onTotop"
         >
@@ -54,7 +55,8 @@ export default {
       finished: false,
       messages: [],
       messageComponent: Item,
-      overflow: false
+      overflow: false,
+      disabled: false
     }
   },
 
@@ -93,6 +95,7 @@ export default {
           return
         }
 
+        this.disabled = true
         const sids = getSids(messages)
         this.messages = messages.concat(this.messages)
         this.$nextTick(() => {
@@ -101,9 +104,10 @@ export default {
             const previousSize = typeof previousValue === 'string' ? vsl.getSize(previousValue) : previousValue
             return previousSize + this.$refs.vsl.getSize(currentSid)
           })
-          this.setVirtualListToOffset(offset)
+          this.setVirtualListToOffset(this.$refs.vsl.getOffset() + offset)
 
           this.param.isFetching = false
+          this.disabled = false
         })
       })
     },
