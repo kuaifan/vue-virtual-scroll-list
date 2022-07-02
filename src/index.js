@@ -22,14 +22,21 @@ const VirtualList = Vue.component('virtual-list', {
   data () {
     return {
       range: null,
-      toBottomTime: null
+      toBottomTime: null,
+      touchIng: false,
+      touchEvent: false,
+      addIng: false
     }
   },
 
   watch: {
     'dataSources.length' () {
+      this.addIng = true
       this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources())
       this.virtual.handleDataSourcesChange()
+      this.$nextTick(_ => {
+        this.addIng = false
+      })
     },
 
     keeps (newValue) {
@@ -285,6 +292,9 @@ const VirtualList = Vue.component('virtual-list', {
     },
 
     onScroll (evt) {
+      if (this.addIng) {
+        return
+      }
       const offset = this.getOffset()
       const clientSize = this.getClientSize()
       const scrollSize = this.getScrollSize()
@@ -298,14 +308,36 @@ const VirtualList = Vue.component('virtual-list', {
       this.emitEvent(offset, clientSize, scrollSize, evt)
     },
 
+    onTouchstart () {
+      this.touchIng = true
+    },
+
+    onTouchend () {
+      this.touchIng = false
+      if (this.touchEvent === 'totop') {
+        this.$emit('totop')
+      } else if (this.touchEvent === 'tobottom') {
+        this.$emit('tobottom')
+      }
+    },
+
     // emit event in special position
     emitEvent (offset, clientSize, scrollSize, evt) {
       this.$emit('scroll', evt, this.virtual.getRange())
 
+      this.touchEvent = null
       if (this.virtual.isFront() && !!this.dataSources.length && (offset - this.topThreshold <= 0)) {
-        this.$emit('totop')
+        if (this.touchIng) {
+          this.touchEvent = 'totop'
+        } else {
+          this.$emit('totop')
+        }
       } else if (this.virtual.isBehind() && (offset + clientSize + this.bottomThreshold >= scrollSize)) {
-        this.$emit('tobottom')
+        if (this.touchIng) {
+          this.touchEvent = 'tobottom'
+        } else {
+          this.$emit('tobottom')
+        }
       }
     },
 
@@ -361,7 +393,9 @@ const VirtualList = Vue.component('virtual-list', {
     return h(rootTag, {
       ref: 'root',
       on: {
-        '&scroll': !pageMode && this.onScroll
+        '&scroll': !pageMode && this.onScroll,
+        '&touchstart': this.onTouchstart,
+        '&touchend': this.onTouchend
       }
     }, [
       // header slot

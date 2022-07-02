@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.3-3
+ * vue-virtual-scroll-list v2.3.3-5
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -716,13 +716,22 @@
     data: function data() {
       return {
         range: null,
-        toBottomTime: null
+        toBottomTime: null,
+        touchIng: false,
+        touchEvent: false,
+        addIng: false
       };
     },
     watch: {
       'dataSources.length': function dataSourcesLength() {
+        var _this = this;
+
+        this.addIng = true;
         this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources());
         this.virtual.handleDataSourcesChange();
+        this.$nextTick(function (_) {
+          _this.addIng = false;
+        });
       },
       keeps: function keeps(newValue) {
         this.virtual.updateParam('keeps', newValue);
@@ -856,7 +865,7 @@
       },
       // set current scroll position to bottom
       scrollToBottom: function scrollToBottom() {
-        var _this = this;
+        var _this2 = this;
 
         var shepherd = this.$refs.shepherd;
 
@@ -872,8 +881,8 @@
           }
 
           this.toBottomTime = setTimeout(function () {
-            if (_this.getOffset() + _this.getClientSize() < _this.getScrollSize()) {
-              _this.scrollToBottom();
+            if (_this2.getOffset() + _this2.getClientSize() < _this2.getScrollSize()) {
+              _this2.scrollToBottom();
             }
           }, 3);
         }
@@ -963,6 +972,10 @@
         this.$emit('range', this.range);
       },
       onScroll: function onScroll(evt) {
+        if (this.addIng) {
+          return;
+        }
+
         var offset = this.getOffset();
         var clientSize = this.getClientSize();
         var scrollSize = this.getScrollSize(); // iOS scroll-spring-back behavior will make direction mistake
@@ -974,14 +987,35 @@
         this.virtual.handleScroll(offset);
         this.emitEvent(offset, clientSize, scrollSize, evt);
       },
+      onTouchstart: function onTouchstart() {
+        this.touchIng = true;
+      },
+      onTouchend: function onTouchend() {
+        this.touchIng = false;
+
+        if (this.touchEvent === 'totop') {
+          this.$emit('totop');
+        } else if (this.touchEvent === 'tobottom') {
+          this.$emit('tobottom');
+        }
+      },
       // emit event in special position
       emitEvent: function emitEvent(offset, clientSize, scrollSize, evt) {
         this.$emit('scroll', evt, this.virtual.getRange());
+        this.touchEvent = null;
 
         if (this.virtual.isFront() && !!this.dataSources.length && offset - this.topThreshold <= 0) {
-          this.$emit('totop');
+          if (this.touchIng) {
+            this.touchEvent = 'totop';
+          } else {
+            this.$emit('totop');
+          }
         } else if (this.virtual.isBehind() && offset + clientSize + this.bottomThreshold >= scrollSize) {
-          this.$emit('tobottom');
+          if (this.touchIng) {
+            this.touchEvent = 'tobottom';
+          } else {
+            this.$emit('tobottom');
+          }
         }
       },
       // get the real render slots based on range data
@@ -1065,7 +1099,9 @@
       return h(rootTag, {
         ref: 'root',
         on: {
-          '&scroll': !pageMode && this.onScroll
+          '&scroll': !pageMode && this.onScroll,
+          '&touchstart': this.onTouchstart,
+          '&touchend': this.onTouchend
         }
       }, [// header slot
       header ? h(Slot, {
