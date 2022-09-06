@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.3-6
+ * vue-virtual-scroll-list v2.3.4-1
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -876,7 +876,7 @@
           }
 
           this.toBottomTime = setTimeout(function () {
-            if (_this.getOffset() + _this.getClientSize() < _this.getScrollSize()) {
+            if (_this.getOffset() + _this.getClientSize() + 1 < _this.getScrollSize()) {
               _this.scrollToBottom();
             }
           }, 3);

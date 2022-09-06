@@ -188,7 +188,7 @@ const VirtualList = Vue.component('virtual-list', {
           this.toBottomTime = null
         }
         this.toBottomTime = setTimeout(() => {
-          if (this.getOffset() + this.getClientSize() < this.getScrollSize()) {
+          if (this.getOffset() + this.getClientSize() + 1 < this.getScrollSize()) {
             this.scrollToBottom()
           }
         }, 3)

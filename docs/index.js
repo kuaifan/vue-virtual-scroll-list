@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.2
+ * vue-virtual-scroll-list v2.3.4-1
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -32,6 +32,55 @@
     if (protoProps) _defineProperties(Constructor.prototype, protoProps);
     if (staticProps) _defineProperties(Constructor, staticProps);
     return Constructor;
+  }
+
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
+  }
+
+  function ownKeys(object, enumerableOnly) {
+    var keys = Object.keys(object);
+
+    if (Object.getOwnPropertySymbols) {
+      var symbols = Object.getOwnPropertySymbols(object);
+      if (enumerableOnly) symbols = symbols.filter(function (sym) {
+        return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+      });
+      keys.push.apply(keys, symbols);
+    }
+
+    return keys;
+  }
+
+  function _objectSpread2(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i] != null ? arguments[i] : {};
+
+      if (i % 2) {
+        ownKeys(Object(source), true).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else if (Object.getOwnPropertyDescriptors) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+      } else {
+        ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+    }
+
+    return target;
   }
 
   function _toConsumableArray(arr) {
@@ -81,7 +130,7 @@
     FIXED: 'FIXED',
     DYNAMIC: 'DYNAMIC'
   };
-  var LEADING_BUFFER = 2;
+  var LEADING_BUFFER = 0;
 
   var Virtual = /*#__PURE__*/function () {
     function Virtual(param, callUpdate) {
@@ -515,6 +564,10 @@
     },
     itemScopedSlots: {
       type: Object
+    },
+    disabled: {
+      type: Boolean,
+      "default": false
     }
   };
   var ItemProps = {
@@ -535,6 +588,9 @@
     },
     component: {
       type: [Object, Function]
+    },
+    slotComponent: {
+      type: Function
     },
     uniqueKey: {
       type: [String, Number]
@@ -561,10 +617,6 @@
     }
   };
 
-  /**
-   * item and slot component both use similar wrapper
-   * we need to know their size change at any time
-   */
   var Wrapper = {
     created: function created() {
       this.shapeKey = this.horizontal ? 'offsetWidth' : 'offsetHeight';
@@ -609,18 +661,28 @@
           _this$extraProps = this.extraProps,
           extraProps = _this$extraProps === void 0 ? {} : _this$extraProps,
           index = this.index,
+          source = this.source,
           _this$scopedSlots = this.scopedSlots,
           scopedSlots = _this$scopedSlots === void 0 ? {} : _this$scopedSlots,
-          uniqueKey = this.uniqueKey;
-      extraProps.source = this.source;
-      extraProps.index = index;
+          uniqueKey = this.uniqueKey,
+          slotComponent = this.slotComponent;
+
+      var props = _objectSpread2({}, extraProps, {
+        source: source,
+        index: index
+      });
+
       return h(tag, {
         key: uniqueKey,
         attrs: {
           role: 'listitem'
         }
-      }, [h(component, {
-        props: extraProps,
+      }, [slotComponent ? h('div', slotComponent({
+        item: source,
+        index: index,
+        scope: props
+      })) : h(component, {
+        props: props,
         scopedSlots: scopedSlots
       })]);
     }
@@ -649,15 +711,16 @@
     SLOT: 'slot_resize'
   };
   var SLOT_TYPE = {
-    HEADER: 'header',
+    HEADER: 'thead',
     // string value also use for aria role attribute
-    FOOTER: 'footer'
+    FOOTER: 'tfoot'
   };
   var VirtualList = Vue.component('virtual-list', {
     props: VirtualProps,
     data: function data() {
       return {
-        range: null
+        range: null,
+        toBottomTime: null
       };
     },
     watch: {
@@ -687,9 +750,20 @@
         this.$on(EVENT_TYPE.SLOT, this.onSlotResized);
       }
     },
-    // set back offset when awake from keep-alive
     activated: function activated() {
+      // set back offset when awake from keep-alive
       this.scrollToOffset(this.virtual.offset);
+
+      if (this.pageMode) {
+        document.addEventListener('scroll', this.onScroll, {
+          passive: false
+        });
+      }
+    },
+    deactivated: function deactivated() {
+      if (this.pageMode) {
+        document.removeEventListener('scroll', this.onScroll);
+      }
     },
     mounted: function mounted() {
       // set position
@@ -769,11 +843,18 @@
       },
       // set current scroll position to a expectant index
       scrollToIndex: function scrollToIndex(index) {
+        var addOffset = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+
         // scroll to bottom
         if (index >= this.dataSources.length - 1) {
           this.scrollToBottom();
         } else {
           var offset = this.virtual.getOffset(index);
+
+          if (addOffset !== 0) {
+            offset = Math.max(0, offset + addOffset);
+          }
+
           this.scrollToOffset(offset);
         }
       },
@@ -789,12 +870,40 @@
           // maybe list doesn't render and calculate to last range
           // so we need retry in next event loop until it really at bottom
 
-          setTimeout(function () {
-            if (_this.getOffset() + _this.getClientSize() < _this.getScrollSize()) {
+          if (this.toBottomTime) {
+            clearTimeout(this.toBottomTime);
+            this.toBottomTime = null;
+          }
+
+          this.toBottomTime = setTimeout(function () {
+            if (_this.getOffset() + _this.getClientSize() + 1 < _this.getScrollSize()) {
               _this.scrollToBottom();
             }
           }, 3);
         }
+      },
+      stopToBottom: function stopToBottom() {
+        if (this.toBottomTime) {
+          clearTimeout(this.toBottomTime);
+          this.toBottomTime = null;
+        }
+      },
+      scrollStop: function scrollStop() {
+        this.stopToBottom();
+        this.scrollToOffset(this.getOffset());
+      },
+      scrollInfo: function scrollInfo() {
+        var clientSize = this.getClientSize();
+        var offset = this.getOffset();
+        var scrollSize = this.getScrollSize();
+        return {
+          offset: offset,
+          // 滚动的距离
+          scale: offset / (scrollSize - clientSize),
+          // 已滚动比例
+          tail: scrollSize - clientSize - offset // 与底部距离
+
+        };
       },
       // when using page mode we need update slot header size manually
       // taking root offset relative to the browser as slot header size
@@ -827,6 +936,7 @@
         }, this.onRangeChanged); // sync initial range
 
         this.range = this.virtual.getRange();
+        this.$emit('range', this.range);
       },
       getUniqueIdFromDataSources: function getUniqueIdFromDataSources() {
         var dataKey = this.dataKey;
@@ -854,8 +964,13 @@
       // here is the rerendering entry
       onRangeChanged: function onRangeChanged(range) {
         this.range = range;
+        this.$emit('range', this.range);
       },
       onScroll: function onScroll(evt) {
+        if (this.disabled) {
+          return;
+        }
+
         var offset = this.getOffset();
         var clientSize = this.getClientSize();
         var scrollSize = this.getScrollSize(); // iOS scroll-spring-back behavior will make direction mistake
@@ -894,6 +1009,7 @@
             extraProps = this.extraProps,
             dataComponent = this.dataComponent,
             itemScopedSlots = this.itemScopedSlots;
+        var slotComponent = this.$scopedSlots && this.$scopedSlots.item;
 
         for (var index = start; index <= end; index++) {
           var dataSource = dataSources[index];
@@ -912,6 +1028,7 @@
                   source: dataSource,
                   extraProps: extraProps,
                   component: dataComponent,
+                  slotComponent: slotComponent,
                   scopedSlots: itemScopedSlots
                 },
                 style: itemStyle,
@@ -948,13 +1065,17 @@
           headerStyle = this.headerStyle,
           footerTag = this.footerTag,
           footerClass = this.footerClass,
-          footerStyle = this.footerStyle;
+          footerStyle = this.footerStyle,
+          disabled = this.disabled;
       var paddingStyle = {
         padding: isHorizontal ? "0px ".concat(padBehind, "px 0px ").concat(padFront, "px") : "".concat(padFront, "px 0px ").concat(padBehind, "px")
       };
       var wrapperStyle = wrapStyle ? Object.assign({}, wrapStyle, paddingStyle) : paddingStyle;
       return h(rootTag, {
         ref: 'root',
+        style: disabled ? {
+          overflow: 'hidden'
+        } : null,
         on: {
           '&scroll': !pageMode && this.onScroll
         }
