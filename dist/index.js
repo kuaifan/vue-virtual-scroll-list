@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.4-1
+ * vue-virtual-scroll-list v2.3.4-3
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -271,7 +271,7 @@
     }, {
       key: "handleScroll",
       value: function handleScroll(offset) {
-        this.direction = offset < this.offset ? DIRECTION_TYPE.FRONT : DIRECTION_TYPE.BEHIND;
+        this.direction = offset < this.offset || offset === 0 ? DIRECTION_TYPE.FRONT : DIRECTION_TYPE.BEHIND;
         this.offset = offset;
 
         if (!this.param) {
@@ -677,11 +677,11 @@
         attrs: {
           role: 'listitem'
         }
-      }, [slotComponent ? h('div', slotComponent({
+      }, [slotComponent ? slotComponent({
         item: source,
         index: index,
         scope: props
-      })) : h(component, {
+      }) : h(component, {
         props: props,
         scopedSlots: scopedSlots
       })]);
