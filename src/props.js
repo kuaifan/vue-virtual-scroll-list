@@ -78,6 +78,14 @@ export const VirtualProps = {
   itemClassAdd: {
     type: Function
   },
+  itemActiveClass: {
+    type: String,
+    default: ''
+  },
+  itemInactiveClass: {
+    type: String,
+    default: ''
+  },
   itemStyle: {
     type: Object
   },

@@ -298,7 +298,29 @@ const VirtualList = Vue.component('virtual-list', {
       }
 
       this.virtual.handleScroll(offset)
+      this.activeEvent(evt.target)
       this.emitEvent(offset, clientSize, scrollSize, evt)
+    },
+
+    activeEvent (target) {
+      if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
+        return
+      }
+      const containerRect = target.getBoundingClientRect()
+      const items = target.querySelectorAll('div[role="listitem"]')
+      items.forEach((item, index) => {
+        const itemRect = item.getBoundingClientRect()
+        if (
+          itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top &&
+          itemRect.left < containerRect.right && itemRect.right > containerRect.left
+        ) {
+          this.itemActiveClass && item.classList.add(this.itemActiveClass)
+          this.itemInactiveClass && item.classList.remove(this.itemInactiveClass)
+        } else {
+          this.itemActiveClass && item.classList.remove(this.itemActiveClass)
+          this.itemInactiveClass && item.classList.add(this.itemInactiveClass)
+        }
+      })
     },
 
     // emit event in special position
@@ -339,7 +361,10 @@ const VirtualList = Vue.component('virtual-list', {
                 scopedSlots: itemScopedSlots
               },
               style: itemStyle,
-              class: `${itemClass}${this.itemClassAdd ? ' ' + this.itemClassAdd(index) : ''}`
+              class: [
+                itemClass,
+                this.itemClassAdd ? this.itemClassAdd(index) : null
+              ]
             }))
           } else {
             console.warn(`Cannot get the data-key '${dataKey}' from data-sources.`)
