@@ -148,7 +148,7 @@ const VirtualList = Vue.component('virtual-list', {
 
     // set current scroll position to a expectant offset
     scrollToOffset (offset) {
-      this.$emit('offset', { type: 'start', offset })
+      this.$emit('activity', true)
       if (this.pageMode) {
         document.body[this.directionKey] = offset
         document.documentElement[this.directionKey] = offset
@@ -158,8 +158,10 @@ const VirtualList = Vue.component('virtual-list', {
           root[this.directionKey] = offset
         }
       }
-      this.activeEvent(this.$refs.root)
-      this.$emit('offset', { type: 'end', offset })
+      requestAnimationFrame(() => {
+        this.activeEvent(this.$refs.root)
+        this.$emit('activity', false)
+      })
     },
 
     // set current scroll position to a expectant index
@@ -250,7 +252,7 @@ const VirtualList = Vue.component('virtual-list', {
         estimateSize: this.estimateSize,
         buffer: Math.round(this.keeps / 3), // recommend for a third of keeps
         uniqueIds: this.getUniqueIdFromDataSources()
-      }, this.onRangeChanged)
+      }, this.onRangeChanged, this.onBeforeChanged)
 
       // sync initial range
       this.range = this.virtual.getRange()
@@ -281,10 +283,19 @@ const VirtualList = Vue.component('virtual-list', {
       }
     },
 
+    // here is the rerendering before
+    onBeforeChanged () {
+      this.$emit('activity', true)
+    },
+
     // here is the rerendering entry
     onRangeChanged (range) {
       this.range = range
       this.$emit('range', this.range)
+      requestAnimationFrame(() => {
+        this.activeEvent(this.$refs.root)
+        this.$emit('activity', false)
+      })
     },
 
     onScroll (evt) {

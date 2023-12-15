@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-3
+ * vue-virtual-scroll-list v2.3.5-5
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -133,18 +133,19 @@
   var LEADING_BUFFER = 0;
 
   var Virtual = /*#__PURE__*/function () {
-    function Virtual(param, callUpdate) {
+    function Virtual(param, callUpdate, callBefore) {
       _classCallCheck(this, Virtual);
 
-      this.init(param, callUpdate);
+      this.init(param, callUpdate, callBefore);
     }
 
     _createClass(Virtual, [{
       key: "init",
-      value: function init(param, callUpdate) {
+      value: function init(param, callUpdate, callBefore) {
         // param data
         this.param = param;
-        this.callUpdate = callUpdate; // size data
+        this.callUpdate = typeof callUpdate === 'function' ? callUpdate : function () {};
+        this.callBefore = typeof callBefore === 'function' ? callBefore : function () {}; // size data
 
         this.sizes = new Map();
         this.firstRangeTotalSize = 0;
@@ -401,6 +402,7 @@
     }, {
       key: "updateRange",
       value: function updateRange(start, end) {
+        this.callBefore();
         this.range.start = start;
         this.range.end = end;
         this.range.padFront = this.getPadFront();
@@ -828,10 +830,9 @@
       },
       // set current scroll position to a expectant offset
       scrollToOffset: function scrollToOffset(offset) {
-        this.$emit('offset', {
-          type: 'start',
-          offset: offset
-        });
+        var _this = this;
+
+        this.$emit('activity', true);
 
         if (this.pageMode) {
           document.body[this.directionKey] = offset;
@@ -844,10 +845,10 @@
           }
         }
 
-        this.activeEvent(this.$refs.root);
-        this.$emit('offset', {
-          type: 'end',
-          offset: offset
+        requestAnimationFrame(function () {
+          _this.activeEvent(_this.$refs.root);
+
+          _this.$emit('activity', false);
         });
       },
       // set current scroll position to a expectant index
@@ -869,7 +870,7 @@
       },
       // set current scroll position to bottom
       scrollToBottom: function scrollToBottom() {
-        var _this = this;
+        var _this2 = this;
 
         var shepherd = this.$refs.shepherd;
 
@@ -885,8 +886,8 @@
           }
 
           this.toBottomTime = setTimeout(function () {
-            if (_this.getOffset() + _this.getClientSize() + 1 < _this.getScrollSize()) {
-              _this.scrollToBottom();
+            if (_this2.getOffset() + _this2.getClientSize() + 1 < _this2.getScrollSize()) {
+              _this2.scrollToBottom();
             }
           }, 3);
         }
@@ -942,7 +943,7 @@
           buffer: Math.round(this.keeps / 3),
           // recommend for a third of keeps
           uniqueIds: this.getUniqueIdFromDataSources()
-        }, this.onRangeChanged); // sync initial range
+        }, this.onRangeChanged, this.onBeforeChanged); // sync initial range
 
         this.range = this.virtual.getRange();
         this.$emit('range', this.range);
@@ -970,10 +971,21 @@
           this.virtual.handleSlotSizeChange();
         }
       },
+      // here is the rerendering before
+      onBeforeChanged: function onBeforeChanged() {
+        this.$emit('activity', true);
+      },
       // here is the rerendering entry
       onRangeChanged: function onRangeChanged(range) {
+        var _this3 = this;
+
         this.range = range;
         this.$emit('range', this.range);
+        requestAnimationFrame(function () {
+          _this3.activeEvent(_this3.$refs.root);
+
+          _this3.$emit('activity', false);
+        });
       },
       onScroll: function onScroll(evt) {
         if (this.disabled) {
@@ -993,7 +1005,7 @@
         this.emitEvent(offset, clientSize, scrollSize, evt);
       },
       activeEvent: function activeEvent(target) {
-        var _this2 = this;
+        var _this4 = this;
 
         if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
           return;
@@ -1005,11 +1017,11 @@
           var itemRect = item.getBoundingClientRect();
 
           if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
-            _this2.itemActiveClass && item.classList.add(_this2.itemActiveClass);
-            _this2.itemInactiveClass && item.classList.remove(_this2.itemInactiveClass);
+            _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
+            _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
           } else {
-            _this2.itemActiveClass && item.classList.remove(_this2.itemActiveClass);
-            _this2.itemInactiveClass && item.classList.add(_this2.itemInactiveClass);
+            _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
+            _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
           }
         });
       },

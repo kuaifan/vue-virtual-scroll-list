@@ -14,14 +14,15 @@ const CALC_TYPE = {
 const LEADING_BUFFER = 0
 
 export default class Virtual {
-  constructor (param, callUpdate) {
-    this.init(param, callUpdate)
+  constructor (param, callUpdate, callBefore) {
+    this.init(param, callUpdate, callBefore)
   }
 
-  init (param, callUpdate) {
+  init (param, callUpdate, callBefore) {
     // param data
     this.param = param
-    this.callUpdate = callUpdate
+    this.callUpdate = typeof callUpdate === 'function' ? callUpdate : () => {}
+    this.callBefore = typeof callBefore === 'function' ? callBefore : () => {}
 
     // size data
     this.sizes = new Map()
@@ -260,6 +261,7 @@ export default class Virtual {
 
   // setting to a new range and rerender
   updateRange (start, end) {
+    this.callBefore()
     this.range.start = start
     this.range.end = end
     this.range.padFront = this.getPadFront()
