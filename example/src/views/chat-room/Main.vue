@@ -6,7 +6,11 @@
 
     <div class="main">
       <div class="list-container">
-        <virtual-list v-show="!!messages.length" class="stream scroll-touch" :class="{ overflow: overflow }" ref="vsl"
+        <virtual-list
+          v-show="!!messages.length"
+          item-inactive-class="inactive"
+          class="stream scroll-touch"
+          :class="{ overflow: overflow }" ref="vsl"
           :data-key="'sid'"
           :data-sources="messages"
           :data-component="messageComponent"
@@ -17,6 +21,7 @@
           :disabled="disabled"
           @resized="onItemRendered"
           @totop="onTotop"
+          @offset="onOffset"
         >
           <div slot="header" v-show="overflow" class="header">
             <div class="spinner" v-show="!finished"></div>
@@ -80,6 +85,9 @@ export default {
   },
 
   methods: {
+    onOffset (val) {
+      console.log(val)
+    },
     onTotop () {
       // only page type has paging
       if (getLoadType() !== LOAD_TYPES.PAGES || this.param.isFetching) {
