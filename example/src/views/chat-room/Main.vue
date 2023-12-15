@@ -8,7 +8,7 @@
       <div class="list-container">
         <virtual-list
           v-show="!!messages.length"
-          item-inactive-class="inactive"
+          active-prefix="hhh"
           class="stream scroll-touch"
           :class="{ overflow: overflow }" ref="vsl"
           :data-key="'sid'"

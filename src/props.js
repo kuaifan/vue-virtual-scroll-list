@@ -78,14 +78,6 @@ export const VirtualProps = {
   itemClassAdd: {
     type: Function
   },
-  itemActiveClass: {
-    type: String,
-    default: ''
-  },
-  itemInactiveClass: {
-    type: String,
-    default: ''
-  },
   itemStyle: {
     type: Object
   },
@@ -117,6 +109,10 @@ export const VirtualProps = {
   disabled: {
     type: Boolean,
     default: false
+  },
+  activePrefix: {
+    type: String,
+    default: ''
   }
 }
 

@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-5
+ * vue-virtual-scroll-list v2.3.5-7
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -529,14 +529,6 @@
     itemClassAdd: {
       type: Function
     },
-    itemActiveClass: {
-      type: String,
-      "default": ''
-    },
-    itemInactiveClass: {
-      type: String,
-      "default": ''
-    },
     itemStyle: {
       type: Object
     },
@@ -568,6 +560,10 @@
     disabled: {
       type: Boolean,
       "default": false
+    },
+    activePrefix: {
+      type: String,
+      "default": ''
     }
   };
   var ItemProps = {
@@ -1004,11 +1000,10 @@
         this.activeEvent(evt.target);
         this.emitEvent(offset, clientSize, scrollSize, evt);
       },
-      // 元素有一半（或大于100）进入可视区域就算作进入可视区域
       activeEvent: function activeEvent(target) {
         var _this4 = this;
 
-        if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
+        if (!this.activePrefix || !target) {
           return;
         }
 
@@ -1017,25 +1012,32 @@
         items.forEach(function (item, index) {
           var itemRect = item.getBoundingClientRect();
 
-          if (_this4.isHorizontal) {
-            var centerLine = itemRect.left + Math.min(100, itemRect.width / 2);
+          if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
+            item.classList.remove(_this4.activePrefix + '-leave');
+          } else {
+            item.classList.add(_this4.activePrefix + '-leave'); // 已经完全离开
+          }
 
-            if (centerLine < containerRect.left || centerLine > containerRect.right) {
-              _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
-              _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+          if (_this4.isHorizontal) {
+            var minHalf = Math.min(100, itemRect.width / 2);
+            var leftLine = itemRect.left + minHalf;
+            var rightLine = itemRect.right - minHalf;
+
+            if (rightLine < containerRect.left || leftLine > containerRect.right) {
+              item.classList.remove(_this4.activePrefix + '-enter');
             } else {
-              _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
-              _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
             }
           } else {
-            var _centerLine = itemRect.top + Math.min(100, itemRect.height / 2);
+            var _minHalf = Math.min(100, itemRect.height / 2);
 
-            if (_centerLine < containerRect.top || _centerLine > containerRect.bottom) {
-              _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
-              _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+            var topLine = itemRect.top + _minHalf;
+            var bottomLine = itemRect.bottom - _minHalf;
+
+            if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
+              item.classList.remove(_this4.activePrefix + '-enter');
             } else {
-              _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
-              _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
             }
           }
         });

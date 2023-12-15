@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-4
+ * vue-virtual-scroll-list v2.3.5-6
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -529,14 +529,6 @@
     itemClassAdd: {
       type: Function
     },
-    itemActiveClass: {
-      type: String,
-      "default": ''
-    },
-    itemInactiveClass: {
-      type: String,
-      "default": ''
-    },
     itemStyle: {
       type: Object
     },
@@ -568,6 +560,10 @@
     disabled: {
       type: Boolean,
       "default": false
+    },
+    activePrefix: {
+      type: String,
+      "default": ''
     }
   };
   var ItemProps = {
@@ -1007,7 +1003,7 @@
       activeEvent: function activeEvent(target) {
         var _this4 = this;
 
-        if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
+        if (!this.activePrefix || !target) {
           return;
         }
 
@@ -1017,11 +1013,32 @@
           var itemRect = item.getBoundingClientRect();
 
           if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
-            _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
-            _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+            item.classList.remove(_this4.activePrefix + '-leave');
           } else {
-            _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
-            _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+            item.classList.add(_this4.activePrefix + '-leave'); // 已经完全离开
+          }
+
+          if (_this4.isHorizontal) {
+            var minHalf = Math.min(100, itemRect.width / 2);
+            var leftLine = itemRect.left + minHalf;
+            var rightLine = itemRect.right - minHalf;
+
+            if (rightLine < containerRect.left || leftLine > containerRect.right) {
+              item.classList.remove(_this4.activePrefix + '-enter');
+            } else {
+              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
+            }
+          } else {
+            var _minHalf = Math.min(100, itemRect.height / 2);
+
+            var topLine = itemRect.top + _minHalf;
+            var bottomLine = itemRect.bottom - _minHalf;
+
+            if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
+              item.classList.remove(_this4.activePrefix + '-enter');
+            } else {
+              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
+            }
           }
         });
       },
