@@ -316,6 +316,7 @@ const VirtualList = Vue.component('virtual-list', {
       this.emitEvent(offset, clientSize, scrollSize, evt)
     },
 
+    // 元素有一半（或大于100）进入可视区域就算作进入可视区域
     activeEvent (target) {
       if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
         return
@@ -324,15 +325,24 @@ const VirtualList = Vue.component('virtual-list', {
       const items = target.querySelectorAll('div[role="listitem"]')
       items.forEach((item, index) => {
         const itemRect = item.getBoundingClientRect()
-        if (
-          itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top &&
-          itemRect.left < containerRect.right && itemRect.right > containerRect.left
-        ) {
-          this.itemActiveClass && item.classList.add(this.itemActiveClass)
-          this.itemInactiveClass && item.classList.remove(this.itemInactiveClass)
+        if (this.isHorizontal) {
+          const centerLine = itemRect.left + Math.min(100, itemRect.width / 2)
+          if (centerLine < containerRect.left || centerLine > containerRect.right) {
+            this.itemActiveClass && item.classList.remove(this.itemActiveClass)
+            this.itemInactiveClass && item.classList.add(this.itemInactiveClass)
+          } else {
+            this.itemActiveClass && item.classList.add(this.itemActiveClass)
+            this.itemInactiveClass && item.classList.remove(this.itemInactiveClass)
+          }
         } else {
-          this.itemActiveClass && item.classList.remove(this.itemActiveClass)
-          this.itemInactiveClass && item.classList.add(this.itemInactiveClass)
+          const centerLine = itemRect.top + Math.min(100, itemRect.height / 2)
+          if (centerLine < containerRect.top || centerLine > containerRect.bottom) {
+            this.itemActiveClass && item.classList.remove(this.itemActiveClass)
+            this.itemInactiveClass && item.classList.add(this.itemInactiveClass)
+          } else {
+            this.itemActiveClass && item.classList.add(this.itemActiveClass)
+            this.itemInactiveClass && item.classList.remove(this.itemInactiveClass)
+          }
         }
       })
     },

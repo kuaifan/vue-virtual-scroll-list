@@ -1004,6 +1004,7 @@
         this.activeEvent(evt.target);
         this.emitEvent(offset, clientSize, scrollSize, evt);
       },
+      // 元素有一半（或大于100）进入可视区域就算作进入可视区域
       activeEvent: function activeEvent(target) {
         var _this4 = this;
 
@@ -1016,12 +1017,26 @@
         items.forEach(function (item, index) {
           var itemRect = item.getBoundingClientRect();
 
-          if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
-            _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
-            _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+          if (_this4.isHorizontal) {
+            var centerLine = itemRect.left + Math.min(100, itemRect.width / 2);
+
+            if (centerLine < containerRect.left || centerLine > containerRect.right) {
+              _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
+              _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+            } else {
+              _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
+              _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+            }
           } else {
-            _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
-            _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+            var _centerLine = itemRect.top + Math.min(100, itemRect.height / 2);
+
+            if (_centerLine < containerRect.top || _centerLine > containerRect.bottom) {
+              _this4.itemActiveClass && item.classList.remove(_this4.itemActiveClass);
+              _this4.itemInactiveClass && item.classList.add(_this4.itemInactiveClass);
+            } else {
+              _this4.itemActiveClass && item.classList.add(_this4.itemActiveClass);
+              _this4.itemInactiveClass && item.classList.remove(_this4.itemInactiveClass);
+            }
           }
         });
       },
