@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.4-1
+ * vue-virtual-scroll-list v2.3.5-3
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -149,7 +149,6 @@
         this.sizes = new Map();
         this.firstRangeTotalSize = 0;
         this.firstRangeAverageSize = 0;
-        this.lastCalcIndex = 0;
         this.fixedSizeValue = 0;
         this.calcType = CALC_TYPE.INIT; // scroll data
 
@@ -271,7 +270,7 @@
     }, {
       key: "handleScroll",
       value: function handleScroll(offset) {
-        this.direction = offset < this.offset ? DIRECTION_TYPE.FRONT : DIRECTION_TYPE.BEHIND;
+        this.direction = offset < this.offset || offset === 0 ? DIRECTION_TYPE.FRONT : DIRECTION_TYPE.BEHIND;
         this.offset = offset;
 
         if (!this.param) {
@@ -362,11 +361,8 @@
           // this.__getIndexOffsetCalls++
           indexSize = this.sizes.get(this.param.uniqueIds[index]);
           offset = offset + (typeof indexSize === 'number' ? indexSize : this.getEstimateSize());
-        } // remember last calculate index
+        }
 
-
-        this.lastCalcIndex = Math.max(this.lastCalcIndex, givenIndex - 1);
-        this.lastCalcIndex = Math.min(this.lastCalcIndex, this.getLastIndex());
         return offset;
       } // is fixed size type
 
@@ -438,21 +434,15 @@
 
         if (this.isFixedType()) {
           return (lastIndex - end) * this.fixedSizeValue;
-        } // if it's all calculated, return the exactly offset
-
-
-        if (this.lastCalcIndex === lastIndex) {
-          return this.getIndexOffset(lastIndex) - this.getIndexOffset(end);
-        } else {
-          // if not, use a estimated value
-          return (lastIndex - end) * this.getEstimateSize();
         }
+
+        return (lastIndex - end) * this.getEstimateSize();
       } // get the item estimate size
 
     }, {
       key: "getEstimateSize",
       value: function getEstimateSize() {
-        return this.isFixedType() ? this.fixedSizeValue : this.firstRangeAverageSize || this.param.estimateSize;
+        return this.isFixedType() ? this.fixedSizeValue : this.param.estimateSize;
       }
     }]);
 
@@ -536,6 +526,14 @@
     },
     itemClassAdd: {
       type: Function
+    },
+    itemActiveClass: {
+      type: String,
+      "default": ''
+    },
+    itemInactiveClass: {
+      type: String,
+      "default": ''
     },
     itemStyle: {
       type: Object
@@ -677,11 +675,11 @@
         attrs: {
           role: 'listitem'
         }
-      }, [slotComponent ? h('div', slotComponent({
+      }, [slotComponent ? slotComponent({
         item: source,
         index: index,
         scope: props
-      })) : h(component, {
+      }) : h(component, {
         props: props,
         scopedSlots: scopedSlots
       })]);
@@ -830,6 +828,11 @@
       },
       // set current scroll position to a expectant offset
       scrollToOffset: function scrollToOffset(offset) {
+        this.$emit('offset', {
+          type: 'start',
+          offset: offset
+        });
+
         if (this.pageMode) {
           document.body[this.directionKey] = offset;
           document.documentElement[this.directionKey] = offset;
@@ -840,6 +843,12 @@
             root[this.directionKey] = offset;
           }
         }
+
+        this.activeEvent(this.$refs.root);
+        this.$emit('offset', {
+          type: 'end',
+          offset: offset
+        });
       },
       // set current scroll position to a expectant index
       scrollToIndex: function scrollToIndex(index) {
@@ -980,7 +989,29 @@
         }
 
         this.virtual.handleScroll(offset);
+        this.activeEvent(evt.target);
         this.emitEvent(offset, clientSize, scrollSize, evt);
+      },
+      activeEvent: function activeEvent(target) {
+        var _this2 = this;
+
+        if (!(this.itemActiveClass || this.itemInactiveClass) || !target) {
+          return;
+        }
+
+        var containerRect = target.getBoundingClientRect();
+        var items = target.querySelectorAll('div[role="listitem"]');
+        items.forEach(function (item, index) {
+          var itemRect = item.getBoundingClientRect();
+
+          if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
+            _this2.itemActiveClass && item.classList.add(_this2.itemActiveClass);
+            _this2.itemInactiveClass && item.classList.remove(_this2.itemInactiveClass);
+          } else {
+            _this2.itemActiveClass && item.classList.remove(_this2.itemActiveClass);
+            _this2.itemInactiveClass && item.classList.add(_this2.itemInactiveClass);
+          }
+        });
       },
       // emit event in special position
       emitEvent: function emitEvent(offset, clientSize, scrollSize, evt) {
@@ -1032,7 +1063,7 @@
                   scopedSlots: itemScopedSlots
                 },
                 style: itemStyle,
-                "class": "".concat(itemClass).concat(this.itemClassAdd ? ' ' + this.itemClassAdd(index) : '')
+                "class": [itemClass, this.itemClassAdd ? this.itemClassAdd(index) : null]
               }));
             } else {
               console.warn("Cannot get the data-key '".concat(dataKey, "' from data-sources."));

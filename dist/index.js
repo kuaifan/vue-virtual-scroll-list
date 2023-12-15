@@ -828,6 +828,11 @@
       },
       // set current scroll position to a expectant offset
       scrollToOffset: function scrollToOffset(offset) {
+        this.$emit('offset', {
+          type: 'start',
+          offset: offset
+        });
+
         if (this.pageMode) {
           document.body[this.directionKey] = offset;
           document.documentElement[this.directionKey] = offset;
@@ -838,6 +843,12 @@
             root[this.directionKey] = offset;
           }
         }
+
+        this.activeEvent(this.$refs.root);
+        this.$emit('offset', {
+          type: 'end',
+          offset: offset
+        });
       },
       // set current scroll position to a expectant index
       scrollToIndex: function scrollToIndex(index) {
