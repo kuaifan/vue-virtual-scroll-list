@@ -1044,13 +1044,22 @@
       },
       // emit event in special position
       emitEvent: function emitEvent(offset, clientSize, scrollSize, evt) {
-        this.$emit('scroll', evt, this.virtual.getRange());
+        var extra = {
+          isFront: this.virtual.isFront(),
+          isBehind: this.virtual.isBehind(),
+          toTop: false,
+          toBottom: false
+        };
 
-        if (this.virtual.isFront() && !!this.dataSources.length && offset - this.topThreshold <= 0) {
+        if (extra.isFront && !!this.dataSources.length && offset - this.topThreshold <= 0) {
+          extra.toTop = true;
           this.$emit('totop');
-        } else if (this.virtual.isBehind() && offset + clientSize + this.bottomThreshold >= scrollSize) {
+        } else if (extra.isBehind && offset + clientSize + this.bottomThreshold >= scrollSize) {
+          extra.toBottom = true;
           this.$emit('tobottom');
         }
+
+        this.$emit('scroll', evt, Object.assign(extra, this.virtual.getRange()));
       },
       // get the real render slots based on range data
       // in-place patch strategy will try to reuse components as possible
