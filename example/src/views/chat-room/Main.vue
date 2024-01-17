@@ -137,7 +137,7 @@ export default {
     onSendMessage (message) {
       this.messages.push(message)
       this.$nextTick(() => {
-        this.setVirtualListToBottom()
+        this.setVirtualListToBottom(true)
       })
     },
 
@@ -181,9 +181,9 @@ export default {
       }
     },
 
-    setVirtualListToBottom () {
+    setVirtualListToBottom (smooth = false) {
       if (this.$refs.vsl) {
-        this.$refs.vsl.scrollToBottom()
+        this.$refs.vsl.scrollToBottom(smooth)
       }
     }
   }

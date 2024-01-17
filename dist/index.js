@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-7
+ * vue-virtual-scroll-list v2.3.5-10
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -824,20 +824,39 @@
           return root ? Math.ceil(root[key]) : 0;
         }
       },
+      // is smooth scrolling used
+      scrollToBehavior: function scrollToBehavior(element, offset, smooth) {
+        if (smooth) {
+          var options = {
+            behavior: 'smooth'
+          };
+
+          if (this.isHorizontal) {
+            options.left = offset;
+          } else {
+            options.top = offset;
+          }
+
+          element.scrollTo(options);
+        } else {
+          element[this.directionKey] = offset;
+        }
+      },
       // set current scroll position to a expectant offset
       scrollToOffset: function scrollToOffset(offset) {
         var _this = this;
 
+        var smooth = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
         this.$emit('activity', true);
 
         if (this.pageMode) {
-          document.body[this.directionKey] = offset;
-          document.documentElement[this.directionKey] = offset;
+          this.scrollToBehavior(document.body, offset, smooth);
+          this.scrollToBehavior(document.documentElement, offset, smooth);
         } else {
           var root = this.$refs.root;
 
           if (root) {
-            root[this.directionKey] = offset;
+            this.scrollToBehavior(root, offset, smooth);
           }
         }
 
@@ -868,13 +887,19 @@
       scrollToBottom: function scrollToBottom() {
         var _this2 = this;
 
+        var smooth = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
         var shepherd = this.$refs.shepherd;
 
         if (shepherd) {
           var offset = shepherd[this.isHorizontal ? 'offsetLeft' : 'offsetTop'];
-          this.scrollToOffset(offset); // check if it's really scrolled to the bottom
+          this.scrollToOffset(offset, smooth);
+
+          if (smooth) {
+            return;
+          } // check if it's really scrolled to the bottom
           // maybe list doesn't render and calculate to last range
           // so we need retry in next event loop until it really at bottom
+
 
           if (this.toBottomTime) {
             clearTimeout(this.toBottomTime);
