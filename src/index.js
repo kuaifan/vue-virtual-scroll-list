@@ -146,16 +146,33 @@ const VirtualList = Vue.component('virtual-list', {
       }
     },
 
+    // is smooth scrolling used
+    scrollToBehavior (element, offset, smooth) {
+      if (smooth) {
+        const options = {
+          behavior: 'smooth'
+        }
+        if (this.isHorizontal) {
+          options.left = offset
+        } else {
+          options.top = offset
+        }
+        element.scrollTo(options)
+      } else {
+        element[this.directionKey] = offset
+      }
+    },
+
     // set current scroll position to a expectant offset
-    scrollToOffset (offset) {
+    scrollToOffset (offset, smooth = false) {
       this.$emit('activity', true)
       if (this.pageMode) {
-        document.body[this.directionKey] = offset
-        document.documentElement[this.directionKey] = offset
+        this.scrollToBehavior(document.body, offset, smooth)
+        this.scrollToBehavior(document.documentElement, offset, smooth)
       } else {
         const { root } = this.$refs
         if (root) {
-          root[this.directionKey] = offset
+          this.scrollToBehavior(root, offset, smooth)
         }
       }
       requestAnimationFrame(() => {
@@ -179,11 +196,14 @@ const VirtualList = Vue.component('virtual-list', {
     },
 
     // set current scroll position to bottom
-    scrollToBottom () {
+    scrollToBottom (smooth = false) {
       const { shepherd } = this.$refs
       if (shepherd) {
         const offset = shepherd[this.isHorizontal ? 'offsetLeft' : 'offsetTop']
-        this.scrollToOffset(offset)
+        this.scrollToOffset(offset, smooth)
+        if (smooth) {
+          return
+        }
 
         // check if it's really scrolled to the bottom
         // maybe list doesn't render and calculate to last range
