@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-10
+ * vue-virtual-scroll-list v2.3.5-12
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -723,6 +723,9 @@
       'dataSources.length': function dataSourcesLength() {
         this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources());
         this.virtual.handleDataSourcesChange();
+      },
+      estimateSize: function estimateSize(newValue) {
+        this.virtual.updateParam('estimateSize', newValue);
       },
       keeps: function keeps(newValue) {
         this.virtual.updateParam('keeps', newValue);
