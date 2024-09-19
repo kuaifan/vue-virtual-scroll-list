@@ -32,6 +32,10 @@ const VirtualList = Vue.component('virtual-list', {
       this.virtual.handleDataSourcesChange()
     },
 
+    estimateSize (newValue) {
+      this.virtual.updateParam('estimateSize', newValue)
+    },
+
     keeps (newValue) {
       this.virtual.updateParam('keeps', newValue)
       this.virtual.handleSlotSizeChange()
