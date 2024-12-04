@@ -117,7 +117,7 @@ export default class Virtual {
 
   // in some special situation (e.g. length change) we need to update in a row
   // try goiong to render next range by a leading buffer according to current direction
-  handleDataSourcesChange () {
+  handleDataSourcesChange (lastData = null) {
     let start = this.range.start
 
     if (this.isFront()) {
@@ -128,7 +128,11 @@ export default class Virtual {
 
     start = Math.max(start, 0)
 
+    if (lastData && typeof lastData === 'object' && lastData.estimateSize !== undefined) {
+      this.param.estSizeTemp = lastData.estimateSize
+    }
     this.updateRange(this.range.start, this.getEndByStart(start))
+    this.param.estSizeTemp = 0
   }
 
   // when slot size change, we also need force update
@@ -289,16 +293,17 @@ export default class Virtual {
   getPadBehind () {
     const end = this.range.end
     const lastIndex = this.getLastIndex()
-
-    if (this.isFixedType()) {
-      return (lastIndex - end) * this.fixedSizeValue
-    }
-
     return (lastIndex - end) * this.getEstimateSize()
   }
 
   // get the item estimate size
   getEstimateSize () {
-    return this.isFixedType() ? this.fixedSizeValue : this.param.estimateSize
+    if (this.isFixedType()) {
+      return this.fixedSizeValue
+    }
+    if (typeof this.param.estSizeTemp === 'number' && this.param.estSizeTemp > 0) {
+      return this.param.estSizeTemp
+    }
+    return this.param.estimateSize
   }
 }

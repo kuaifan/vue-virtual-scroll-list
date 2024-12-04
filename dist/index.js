@@ -12,6 +12,22 @@
 
   Vue = Vue && Object.prototype.hasOwnProperty.call(Vue, 'default') ? Vue['default'] : Vue;
 
+  function _typeof(obj) {
+    "@babel/helpers - typeof";
+
+    if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+      _typeof = function (obj) {
+        return typeof obj;
+      };
+    } else {
+      _typeof = function (obj) {
+        return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+      };
+    }
+
+    return _typeof(obj);
+  }
+
   function _classCallCheck(instance, Constructor) {
     if (!(instance instanceof Constructor)) {
       throw new TypeError("Cannot call a class as a function");
@@ -250,6 +266,7 @@
     }, {
       key: "handleDataSourcesChange",
       value: function handleDataSourcesChange() {
+        var lastData = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
         var start = this.range.start;
 
         if (this.isFront()) {
@@ -259,7 +276,13 @@
         }
 
         start = Math.max(start, 0);
+
+        if (lastData && _typeof(lastData) === 'object' && lastData.estimateSize !== undefined) {
+          this.param.estSizeTemp = lastData.estimateSize;
+        }
+
         this.updateRange(this.range.start, this.getEndByStart(start));
+        this.param.estSizeTemp = 0;
       } // when slot size change, we also need force update
 
     }, {
@@ -433,18 +456,21 @@
       value: function getPadBehind() {
         var end = this.range.end;
         var lastIndex = this.getLastIndex();
-
-        if (this.isFixedType()) {
-          return (lastIndex - end) * this.fixedSizeValue;
-        }
-
         return (lastIndex - end) * this.getEstimateSize();
       } // get the item estimate size
 
     }, {
       key: "getEstimateSize",
       value: function getEstimateSize() {
-        return this.isFixedType() ? this.fixedSizeValue : this.param.estimateSize;
+        if (this.isFixedType()) {
+          return this.fixedSizeValue;
+        }
+
+        if (typeof this.param.estSizeTemp === 'number' && this.param.estSizeTemp > 0) {
+          return this.param.estSizeTemp;
+        }
+
+        return this.param.estimateSize;
       }
     }]);
 
@@ -720,9 +746,9 @@
       };
     },
     watch: {
-      'dataSources.length': function dataSourcesLength() {
+      'dataSources.length': function dataSourcesLength(length) {
         this.virtual.updateParam('uniqueIds', this.getUniqueIdFromDataSources());
-        this.virtual.handleDataSourcesChange();
+        this.virtual.handleDataSourcesChange(length > 0 ? this.dataSources[length - 1] : null);
       },
       estimateSize: function estimateSize(newValue) {
         this.virtual.updateParam('estimateSize', newValue);
