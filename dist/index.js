@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-12
+ * vue-virtual-scroll-list v2.3.5-13
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -167,7 +167,8 @@
         this.firstRangeTotalSize = 0;
         this.firstRangeAverageSize = 0;
         this.fixedSizeValue = 0;
-        this.calcType = CALC_TYPE.INIT; // scroll data
+        this.calcType = CALC_TYPE.INIT;
+        this.temporaryEstimatedSize = 0; // scroll data
 
         this.offset = 0;
         this.direction = ''; // range data
@@ -277,12 +278,13 @@
 
         start = Math.max(start, 0);
 
-        if (lastData && _typeof(lastData) === 'object' && lastData.estimateSize !== undefined) {
-          this.param.estSizeTemp = lastData.estimateSize;
+        if (lastData && _typeof(lastData) === 'object' && typeof lastData.estimateSize === 'number') {
+          this.temporaryEstimatedSize = lastData.estimateSize;
+        } else {
+          this.temporaryEstimatedSize = 0;
         }
 
         this.updateRange(this.range.start, this.getEndByStart(start));
-        this.param.estSizeTemp = 0;
       } // when slot size change, we also need force update
 
     }, {
@@ -466,8 +468,8 @@
           return this.fixedSizeValue;
         }
 
-        if (typeof this.param.estSizeTemp === 'number' && this.param.estSizeTemp > 0) {
-          return this.param.estSizeTemp;
+        if (this.temporaryEstimatedSize > 0) {
+          return this.temporaryEstimatedSize;
         }
 
         return this.param.estimateSize;
