@@ -61,7 +61,8 @@ export const Item = Vue.component('virtual-list-item', {
     return h(tag, {
       key: uniqueKey,
       attrs: {
-        role: 'listitem'
+        role: 'listitem',
+        unique: uniqueKey
       }
     }, [slotComponent ? slotComponent({ item: source, index: index, scope: props }) : h(component, {
       props,

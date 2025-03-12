@@ -22,7 +22,9 @@ const VirtualList = Vue.component('virtual-list', {
   data () {
     return {
       range: null,
-      toBottomTime: null
+      toBottomTimer: null,
+      visibleUniques: null,
+      visibleTimer: null
     }
   },
 
@@ -47,6 +49,10 @@ const VirtualList = Vue.component('virtual-list', {
 
     offset (newValue) {
       this.scrollToOffset(newValue)
+    },
+
+    visibleUniques (value) {
+      this.$emit('visible', JSON.parse(value))
     }
   },
 
@@ -180,7 +186,7 @@ const VirtualList = Vue.component('virtual-list', {
         }
       }
       requestAnimationFrame(() => {
-        this.activeEvent(this.$refs.root)
+        this.activeEvent()
         this.$emit('activity', false)
       })
     },
@@ -212,11 +218,11 @@ const VirtualList = Vue.component('virtual-list', {
         // check if it's really scrolled to the bottom
         // maybe list doesn't render and calculate to last range
         // so we need retry in next event loop until it really at bottom
-        if (this.toBottomTime) {
-          clearTimeout(this.toBottomTime)
-          this.toBottomTime = null
+        if (this.toBottomTimer) {
+          clearTimeout(this.toBottomTimer)
+          this.toBottomTimer = null
         }
-        this.toBottomTime = setTimeout(() => {
+        this.toBottomTimer = setTimeout(() => {
           if (this.getOffset() + this.getClientSize() + 1 < this.getScrollSize()) {
             this.scrollToBottom()
           }
@@ -225,9 +231,9 @@ const VirtualList = Vue.component('virtual-list', {
     },
 
     stopToBottom () {
-      if (this.toBottomTime) {
-        clearTimeout(this.toBottomTime)
-        this.toBottomTime = null
+      if (this.toBottomTimer) {
+        clearTimeout(this.toBottomTimer)
+        this.toBottomTimer = null
       }
     },
 
@@ -291,6 +297,7 @@ const VirtualList = Vue.component('virtual-list', {
     // event called when each item mounted or size changed
     onItemResized (id, size) {
       this.virtual.saveSize(id, size)
+      this.visibleFind(false)
       this.$emit('resized', id, size)
     },
 
@@ -317,7 +324,7 @@ const VirtualList = Vue.component('virtual-list', {
       this.range = range
       this.$emit('range', this.range)
       requestAnimationFrame(() => {
-        this.activeEvent(this.$refs.root)
+        this.activeEvent()
         this.$emit('activity', false)
       })
     },
@@ -330,52 +337,57 @@ const VirtualList = Vue.component('virtual-list', {
       const clientSize = this.getClientSize()
       const scrollSize = this.getScrollSize()
 
-      // iOS scroll-spring-back behavior will make direction mistake
+      // iOS scroll-spring-back behavior will make direction mistake
       if (offset < 0 || (offset + clientSize > scrollSize + 1) || !scrollSize) {
         return
       }
 
       this.virtual.handleScroll(offset)
-      this.activeEvent(evt.target)
+      this.activeEvent()
       this.emitEvent(offset, clientSize, scrollSize, evt)
     },
 
-    activeEvent (target) {
-      if (!this.activePrefix || !target) {
+    activeEvent () {
+      if (!this.activePrefix) {
         return
       }
-      const containerRect = target.getBoundingClientRect()
-      const items = target.querySelectorAll('div[role="listitem"]')
+      const visibleUniques = []
+      const containerRect = this.$refs.root.getBoundingClientRect()
+      const items = this.$refs.root.querySelectorAll('div[role="listitem"]')
       items.forEach((item, index) => {
+        const uniqueVal = Number(item.getAttribute('unique'))
         const itemRect = item.getBoundingClientRect()
         if (
           itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top &&
           itemRect.left < containerRect.right && itemRect.right > containerRect.left
         ) {
-          item.classList.remove(this.activePrefix + '-leave')
+          item.classList.remove(`${this.activePrefix}-leave`)
         } else {
-          item.classList.add(this.activePrefix + '-leave') // 已经完全离开
+          item.classList.add(`${this.activePrefix}-leave`) // 已经完全离开
         }
         if (this.isHorizontal) {
           const minHalf = Math.min(100, itemRect.width / 2)
           const leftLine = itemRect.left + minHalf
           const rightLine = itemRect.right - minHalf
           if (rightLine < containerRect.left || leftLine > containerRect.right) {
-            item.classList.remove(this.activePrefix + '-enter')
+            item.classList.remove(`${this.activePrefix}-enter`)
           } else {
-            item.classList.add(this.activePrefix + '-enter') // 已经完全进入（进入一半或者大于100）
+            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
+            visibleUniques.push(uniqueVal)
           }
         } else {
           const minHalf = Math.min(100, itemRect.height / 2)
           const topLine = itemRect.top + minHalf
           const bottomLine = itemRect.bottom - minHalf
           if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
-            item.classList.remove(this.activePrefix + '-enter')
+            item.classList.remove(`${this.activePrefix}-enter`)
           } else {
-            item.classList.add(this.activePrefix + '-enter') // 已经完全进入（进入一半或者大于100）
+            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
+            visibleUniques.push(uniqueVal)
           }
         }
       })
+      this.visibleUniques = JSON.stringify(visibleUniques)
     },
 
     // emit event in special position
@@ -387,6 +399,25 @@ const VirtualList = Vue.component('virtual-list', {
       } else if (this.virtual.isBehind() && (offset + clientSize + this.bottomThreshold >= scrollSize)) {
         this.$emit('tobottom')
       }
+    },
+
+    // find items that are visible
+    visibleFind (isFind) {
+      if (!this.activePrefix) {
+        return
+      }
+      if (isFind) {
+        const items = this.$refs.root.querySelectorAll(`div[role="listitem"]:not(.${this.activePrefix}-leave)`)
+        this.visibleUniques = JSON.stringify(Array.from(items).map(item => Number(item.getAttribute('unique'))))
+        return
+      }
+      if (this.visibleTimer) {
+        clearTimeout(this.visibleTimer)
+        this.visibleTimer = null
+      }
+      this.visibleTimer = setTimeout(() => {
+        this.visibleFind(true)
+      }, 50)
     },
 
     // get the real render slots based on range data
