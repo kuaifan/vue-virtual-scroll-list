@@ -6,6 +6,7 @@ import Vue from 'vue'
 import Virtual from './virtual'
 import { Item, Slot } from './item'
 import { VirtualProps } from './props'
+import { debounce, throttle } from 'lodash'
 
 const EVENT_TYPE = {
   ITEM: 'item_resize',
@@ -23,8 +24,7 @@ const VirtualList = Vue.component('virtual-list', {
     return {
       range: null,
       toBottomTimer: null,
-      visibleUniques: null,
-      visibleTimer: null
+      visibleUniques: null
     }
   },
 
@@ -186,7 +186,7 @@ const VirtualList = Vue.component('virtual-list', {
         }
       }
       requestAnimationFrame(() => {
-        this.activeEvent()
+        this.leaveAndEnter()
         this.$emit('activity', false)
       })
     },
@@ -297,7 +297,7 @@ const VirtualList = Vue.component('virtual-list', {
     // event called when each item mounted or size changed
     onItemResized (id, size) {
       this.virtual.saveSize(id, size)
-      this.visibleFind(false)
+      this.visibleFind()
       this.$emit('resized', id, size)
     },
 
@@ -324,7 +324,7 @@ const VirtualList = Vue.component('virtual-list', {
       this.range = range
       this.$emit('range', this.range)
       requestAnimationFrame(() => {
-        this.activeEvent()
+        this.leaveAndEnter()
         this.$emit('activity', false)
       })
     },
@@ -343,51 +343,8 @@ const VirtualList = Vue.component('virtual-list', {
       }
 
       this.virtual.handleScroll(offset)
-      this.activeEvent()
+      this.leaveAndEnter()
       this.emitEvent(offset, clientSize, scrollSize, evt)
-    },
-
-    activeEvent () {
-      if (!this.activePrefix) {
-        return
-      }
-      const visibleUniques = []
-      const containerRect = this.$refs.root.getBoundingClientRect()
-      const items = this.$refs.root.querySelectorAll('div[role="listitem"]')
-      items.forEach((item, index) => {
-        const uniqueVal = Number(item.getAttribute('unique'))
-        const itemRect = item.getBoundingClientRect()
-        if (
-          itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top &&
-          itemRect.left < containerRect.right && itemRect.right > containerRect.left
-        ) {
-          item.classList.remove(`${this.activePrefix}-leave`)
-        } else {
-          item.classList.add(`${this.activePrefix}-leave`) // 已经完全离开
-        }
-        if (this.isHorizontal) {
-          const minHalf = Math.min(100, itemRect.width / 2)
-          const leftLine = itemRect.left + minHalf
-          const rightLine = itemRect.right - minHalf
-          if (rightLine < containerRect.left || leftLine > containerRect.right) {
-            item.classList.remove(`${this.activePrefix}-enter`)
-          } else {
-            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
-            visibleUniques.push(uniqueVal)
-          }
-        } else {
-          const minHalf = Math.min(100, itemRect.height / 2)
-          const topLine = itemRect.top + minHalf
-          const bottomLine = itemRect.bottom - minHalf
-          if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
-            item.classList.remove(`${this.activePrefix}-enter`)
-          } else {
-            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
-            visibleUniques.push(uniqueVal)
-          }
-        }
-      })
-      this.visibleUniques = JSON.stringify(visibleUniques)
     },
 
     // emit event in special position
@@ -401,24 +358,59 @@ const VirtualList = Vue.component('virtual-list', {
       }
     },
 
-    // find items that are visible
-    visibleFind (isFind) {
+    // leave or enter class
+    leaveAndEnter: throttle(function () {
       if (!this.activePrefix) {
         return
       }
-      if (isFind) {
-        const items = this.$refs.root.querySelectorAll(`div[role="listitem"]:not(.${this.activePrefix}-leave)`)
-        this.visibleUniques = JSON.stringify(Array.from(items).map(item => Number(item.getAttribute('unique'))))
+      const visibleUniques = []
+      const containerRect = this.$refs.root.getBoundingClientRect()
+      const items = this.$refs.root.querySelectorAll('div[role="listitem"]')
+      items.forEach(item => {
+        const uniqueVal = Number(item.getAttribute('unique'))
+        const itemRect = item.getBoundingClientRect()
+        if (
+          itemRect.top < containerRect.bottom &&
+          itemRect.bottom > containerRect.top &&
+          itemRect.left < containerRect.right &&
+          itemRect.right > containerRect.left
+        ) {
+          item.classList.remove(`${this.activePrefix}-leave`)
+          visibleUniques.push(uniqueVal)
+        } else {
+          item.classList.add(`${this.activePrefix}-leave`) // 已经完全离开
+        }
+        if (this.isHorizontal) {
+          const minHalf = Math.min(100, itemRect.width / 2)
+          const leftLine = itemRect.left + minHalf
+          const rightLine = itemRect.right - minHalf
+          if (rightLine < containerRect.left || leftLine > containerRect.right) {
+            item.classList.remove(`${this.activePrefix}-enter`)
+          } else {
+            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
+          }
+        } else {
+          const minHalf = Math.min(100, itemRect.height / 2)
+          const topLine = itemRect.top + minHalf
+          const bottomLine = itemRect.bottom - minHalf
+          if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
+            item.classList.remove(`${this.activePrefix}-enter`)
+          } else {
+            item.classList.add(`${this.activePrefix}-enter`) // 已经完全进入（进入一半或者大于100）
+          }
+        }
+      })
+      this.visibleUniques = JSON.stringify(visibleUniques)
+    }, 16),
+
+    // find items that are visible
+    visibleFind: debounce(function () {
+      if (!this.activePrefix) {
         return
       }
-      if (this.visibleTimer) {
-        clearTimeout(this.visibleTimer)
-        this.visibleTimer = null
-      }
-      this.visibleTimer = setTimeout(() => {
-        this.visibleFind(true)
-      }, 50)
-    },
+      const items = this.$refs.root.querySelectorAll(`div[role="listitem"]:not(.${this.activePrefix}-leave)`)
+      this.visibleUniques = JSON.stringify(Array.from(items).map(item => Number(item.getAttribute('unique'))))
+    }, 50),
 
     // get the real render slots based on range data
     // in-place patch strategy will try to reuse components as possible

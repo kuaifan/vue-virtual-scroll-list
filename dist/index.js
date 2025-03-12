@@ -1,14 +1,14 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-13
+ * vue-virtual-scroll-list v2.3.5-16
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
 
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('vue')) :
-  typeof define === 'function' && define.amd ? define(['vue'], factory) :
-  (global = global || self, global.VirtualList = factory(global.Vue));
-}(this, (function (Vue) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('vue'), require('lodash')) :
+  typeof define === 'function' && define.amd ? define(['vue', 'lodash'], factory) :
+  (global = global || self, global.VirtualList = factory(global.Vue, global.lodash));
+}(this, (function (Vue, lodash) { 'use strict';
 
   Vue = Vue && Object.prototype.hasOwnProperty.call(Vue, 'default') ? Vue['default'] : Vue;
 
@@ -699,7 +699,8 @@
       return h(tag, {
         key: uniqueKey,
         attrs: {
-          role: 'listitem'
+          role: 'listitem',
+          unique: uniqueKey
         }
       }, [slotComponent ? slotComponent({
         item: source,
@@ -744,7 +745,8 @@
     data: function data() {
       return {
         range: null,
-        toBottomTime: null
+        toBottomTimer: null,
+        visibleUniques: null
       };
     },
     watch: {
@@ -764,6 +766,9 @@
       },
       offset: function offset(newValue) {
         this.scrollToOffset(newValue);
+      },
+      visibleUniques: function visibleUniques(value) {
+        this.$emit('visible', JSON.parse(value));
       }
     },
     created: function created() {
@@ -892,7 +897,7 @@
         }
 
         requestAnimationFrame(function () {
-          _this.activeEvent(_this.$refs.root);
+          _this.leaveAndEnter();
 
           _this.$emit('activity', false);
         });
@@ -932,12 +937,12 @@
           // so we need retry in next event loop until it really at bottom
 
 
-          if (this.toBottomTime) {
-            clearTimeout(this.toBottomTime);
-            this.toBottomTime = null;
+          if (this.toBottomTimer) {
+            clearTimeout(this.toBottomTimer);
+            this.toBottomTimer = null;
           }
 
-          this.toBottomTime = setTimeout(function () {
+          this.toBottomTimer = setTimeout(function () {
             if (_this2.getOffset() + _this2.getClientSize() + 1 < _this2.getScrollSize()) {
               _this2.scrollToBottom();
             }
@@ -945,9 +950,9 @@
         }
       },
       stopToBottom: function stopToBottom() {
-        if (this.toBottomTime) {
-          clearTimeout(this.toBottomTime);
-          this.toBottomTime = null;
+        if (this.toBottomTimer) {
+          clearTimeout(this.toBottomTimer);
+          this.toBottomTimer = null;
         }
       },
       scrollStop: function scrollStop() {
@@ -1009,6 +1014,7 @@
       // event called when each item mounted or size changed
       onItemResized: function onItemResized(id, size) {
         this.virtual.saveSize(id, size);
+        this.visibleFind();
         this.$emit('resized', id, size);
       },
       // event called when slot mounted or size changed
@@ -1034,7 +1040,7 @@
         this.range = range;
         this.$emit('range', this.range);
         requestAnimationFrame(function () {
-          _this3.activeEvent(_this3.$refs.root);
+          _this3.leaveAndEnter();
 
           _this3.$emit('activity', false);
         });
@@ -1046,57 +1052,15 @@
 
         var offset = this.getOffset();
         var clientSize = this.getClientSize();
-        var scrollSize = this.getScrollSize(); // iOS scroll-spring-back behavior will make direction mistake
+        var scrollSize = this.getScrollSize(); // iOS scroll-spring-back behavior will make direction mistake
 
         if (offset < 0 || offset + clientSize > scrollSize + 1 || !scrollSize) {
           return;
         }
 
         this.virtual.handleScroll(offset);
-        this.activeEvent(evt.target);
+        this.leaveAndEnter();
         this.emitEvent(offset, clientSize, scrollSize, evt);
-      },
-      activeEvent: function activeEvent(target) {
-        var _this4 = this;
-
-        if (!this.activePrefix || !target) {
-          return;
-        }
-
-        var containerRect = target.getBoundingClientRect();
-        var items = target.querySelectorAll('div[role="listitem"]');
-        items.forEach(function (item, index) {
-          var itemRect = item.getBoundingClientRect();
-
-          if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
-            item.classList.remove(_this4.activePrefix + '-leave');
-          } else {
-            item.classList.add(_this4.activePrefix + '-leave'); // 已经完全离开
-          }
-
-          if (_this4.isHorizontal) {
-            var minHalf = Math.min(100, itemRect.width / 2);
-            var leftLine = itemRect.left + minHalf;
-            var rightLine = itemRect.right - minHalf;
-
-            if (rightLine < containerRect.left || leftLine > containerRect.right) {
-              item.classList.remove(_this4.activePrefix + '-enter');
-            } else {
-              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
-            }
-          } else {
-            var _minHalf = Math.min(100, itemRect.height / 2);
-
-            var topLine = itemRect.top + _minHalf;
-            var bottomLine = itemRect.bottom - _minHalf;
-
-            if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
-              item.classList.remove(_this4.activePrefix + '-enter');
-            } else {
-              item.classList.add(_this4.activePrefix + '-enter'); // 已经完全进入（进入一半或者大于100）
-            }
-          }
-        });
       },
       // emit event in special position
       emitEvent: function emitEvent(offset, clientSize, scrollSize, evt) {
@@ -1108,6 +1072,64 @@
           this.$emit('tobottom');
         }
       },
+      // leave or enter class
+      leaveAndEnter: lodash.throttle(function () {
+        var _this4 = this;
+
+        if (!this.activePrefix) {
+          return;
+        }
+
+        var visibleUniques = [];
+        var containerRect = this.$refs.root.getBoundingClientRect();
+        var items = this.$refs.root.querySelectorAll('div[role="listitem"]');
+        items.forEach(function (item) {
+          var uniqueVal = Number(item.getAttribute('unique'));
+          var itemRect = item.getBoundingClientRect();
+
+          if (itemRect.top < containerRect.bottom && itemRect.bottom > containerRect.top && itemRect.left < containerRect.right && itemRect.right > containerRect.left) {
+            item.classList.remove("".concat(_this4.activePrefix, "-leave"));
+            visibleUniques.push(uniqueVal);
+          } else {
+            item.classList.add("".concat(_this4.activePrefix, "-leave")); // 已经完全离开
+          }
+
+          if (_this4.isHorizontal) {
+            var minHalf = Math.min(100, itemRect.width / 2);
+            var leftLine = itemRect.left + minHalf;
+            var rightLine = itemRect.right - minHalf;
+
+            if (rightLine < containerRect.left || leftLine > containerRect.right) {
+              item.classList.remove("".concat(_this4.activePrefix, "-enter"));
+            } else {
+              item.classList.add("".concat(_this4.activePrefix, "-enter")); // 已经完全进入（进入一半或者大于100）
+            }
+          } else {
+            var _minHalf = Math.min(100, itemRect.height / 2);
+
+            var topLine = itemRect.top + _minHalf;
+            var bottomLine = itemRect.bottom - _minHalf;
+
+            if (bottomLine < containerRect.top || topLine > containerRect.bottom) {
+              item.classList.remove("".concat(_this4.activePrefix, "-enter"));
+            } else {
+              item.classList.add("".concat(_this4.activePrefix, "-enter")); // 已经完全进入（进入一半或者大于100）
+            }
+          }
+        });
+        this.visibleUniques = JSON.stringify(visibleUniques);
+      }, 16),
+      // find items that are visible
+      visibleFind: lodash.debounce(function () {
+        if (!this.activePrefix) {
+          return;
+        }
+
+        var items = this.$refs.root.querySelectorAll("div[role=\"listitem\"]:not(.".concat(this.activePrefix, "-leave)"));
+        this.visibleUniques = JSON.stringify(Array.from(items).map(function (item) {
+          return Number(item.getAttribute('unique'));
+        }));
+      }, 50),
       // get the real render slots based on range data
       // in-place patch strategy will try to reuse components as possible
       // so those components that are reused will not trigger lifecycle mounted
