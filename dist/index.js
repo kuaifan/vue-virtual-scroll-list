@@ -1076,7 +1076,7 @@
       leaveAndEnter: lodash.throttle(function () {
         var _this4 = this;
 
-        if (!this.activePrefix) {
+        if (!this.activePrefix || !this.$refs.root) {
           return;
         }
 
@@ -1121,7 +1121,7 @@
       }, 16),
       // find items that are visible
       visibleFind: lodash.debounce(function () {
-        if (!this.activePrefix) {
+        if (!this.activePrefix || !this.$refs.root) {
           return;
         }
 

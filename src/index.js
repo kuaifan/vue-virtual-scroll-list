@@ -360,7 +360,7 @@ const VirtualList = Vue.component('virtual-list', {
 
     // leave or enter class
     leaveAndEnter: throttle(function () {
-      if (!this.activePrefix) {
+      if (!this.activePrefix || !this.$refs.root) {
         return
       }
       const visibleUniques = []
@@ -405,7 +405,7 @@ const VirtualList = Vue.component('virtual-list', {
 
     // find items that are visible
     visibleFind: debounce(function () {
-      if (!this.activePrefix) {
+      if (!this.activePrefix || !this.$refs.root) {
         return
       }
       const items = this.$refs.root.querySelectorAll(`div[role="listitem"]:not(.${this.activePrefix}-leave)`)
