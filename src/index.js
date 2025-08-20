@@ -296,7 +296,26 @@ const VirtualList = Vue.component('virtual-list', {
 
     // event called when each item mounted or size changed
     onItemResized (id, size) {
+      // compute delta for items before current start to correct scroll offset
+      const prevSize = this.virtual.sizes.get(id)
       this.virtual.saveSize(id, size)
+      const newSize = this.virtual.sizes.get(id)
+      const oldVal = typeof prevSize === 'number' ? prevSize : 0
+      const newVal = typeof newSize === 'number' ? newSize : 0
+      const delta = newVal - oldVal
+      if (delta !== 0) {
+        const index = this.virtual.param.uniqueIds.indexOf(id)
+        if (index > -1 && index < this.range.start) {
+          if (this.pageMode) {
+            const current = this.getOffset()
+            this.scrollToBehavior(document.body, current + delta, false)
+            this.scrollToBehavior(document.documentElement, current + delta, false)
+          } else if (this.$refs.root) {
+            const el = this.$refs.root
+            this.scrollToBehavior(el, el[this.directionKey] + delta, false)
+          }
+        }
+      }
       this.visibleFind()
       this.$emit('resized', id, size)
     },

@@ -295,7 +295,14 @@ export default class Virtual {
   getPadBehind () {
     const end = this.range.end
     const lastIndex = this.getLastIndex()
-    return (lastIndex - end) * this.getEstimateSize()
+    let pad = 0
+    // use measured sizes when available to avoid drift; fallback to estimate for unknowns
+    for (let index = end + 1; index <= lastIndex; index++) {
+      const id = this.param.uniqueIds[index]
+      const size = this.sizes.get(id)
+      pad += typeof size === 'number' ? size : this.getEstimateSize()
+    }
+    return pad
   }
 
   // get the item estimate size
@@ -305,6 +312,11 @@ export default class Virtual {
     }
     if (this.temporaryEstimatedSize > 0) {
       return this.temporaryEstimatedSize
+    }
+    // prefer the average size measured from the first rendered range if available,
+    // it provides a more stable estimate than the external default
+    if (typeof this.firstRangeAverageSize === 'number' && this.firstRangeAverageSize > 0) {
+      return this.firstRangeAverageSize
     }
     return this.param.estimateSize
   }

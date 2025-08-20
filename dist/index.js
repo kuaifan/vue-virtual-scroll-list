@@ -1,5 +1,5 @@
 /*!
- * vue-virtual-scroll-list v2.3.5-16
+ * vue-virtual-scroll-list v2.3.5-17
  * open source under the MIT license
  * https://github.com/tangbc/vue-virtual-scroll-list#readme
  */
@@ -458,7 +458,15 @@
       value: function getPadBehind() {
         var end = this.range.end;
         var lastIndex = this.getLastIndex();
-        return (lastIndex - end) * this.getEstimateSize();
+        var pad = 0; // use measured sizes when available to avoid drift; fallback to estimate for unknowns
+
+        for (var index = end + 1; index <= lastIndex; index++) {
+          var id = this.param.uniqueIds[index];
+          var size = this.sizes.get(id);
+          pad += typeof size === 'number' ? size : this.getEstimateSize();
+        }
+
+        return pad;
       } // get the item estimate size
 
     }, {
@@ -470,6 +478,12 @@
 
         if (this.temporaryEstimatedSize > 0) {
           return this.temporaryEstimatedSize;
+        } // prefer the average size measured from the first rendered range if available,
+        // it provides a more stable estimate than the external default
+
+
+        if (typeof this.firstRangeAverageSize === 'number' && this.firstRangeAverageSize > 0) {
+          return this.firstRangeAverageSize;
         }
 
         return this.param.estimateSize;
@@ -1013,7 +1027,29 @@
       },
       // event called when each item mounted or size changed
       onItemResized: function onItemResized(id, size) {
+        // compute delta for items before current start to correct scroll offset
+        var prevSize = this.virtual.sizes.get(id);
         this.virtual.saveSize(id, size);
+        var newSize = this.virtual.sizes.get(id);
+        var oldVal = typeof prevSize === 'number' ? prevSize : 0;
+        var newVal = typeof newSize === 'number' ? newSize : 0;
+        var delta = newVal - oldVal;
+
+        if (delta !== 0) {
+          var index = this.virtual.param.uniqueIds.indexOf(id);
+
+          if (index > -1 && index < this.range.start) {
+            if (this.pageMode) {
+              var current = this.getOffset();
+              this.scrollToBehavior(document.body, current + delta, false);
+              this.scrollToBehavior(document.documentElement, current + delta, false);
+            } else if (this.$refs.root) {
+              var el = this.$refs.root;
+              this.scrollToBehavior(el, el[this.directionKey] + delta, false);
+            }
+          }
+        }
+
         this.visibleFind();
         this.$emit('resized', id, size);
       },
